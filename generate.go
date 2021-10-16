@@ -354,7 +354,10 @@ func (g *generator) gatherSchemaType(t types.Type, opts PropertyOptions) (*schem
 		if err != nil {
 			return nil, err
 		}
-		return &schema.TypeSpec{AdditionalProperties: et}, nil
+		return &schema.TypeSpec{
+			Type:  "array",
+			Items: et,
+		}, nil
 	}
 
 	return nil, errors.Errorf("unrecognized field type %v: %v", t, reflect.TypeOf(t))
