@@ -218,7 +218,7 @@ func (g *generator) gatherPropertySchemas(node *ast.TypeSpec, t *types.TypeName,
 		// Use the property's doc-comment as the description, if available.
 		if structNode, ok := node.Type.(*ast.StructType); ok {
 			if comment := structNode.Fields.List[i].Doc; comment != nil {
-				propSpec.Description = strings.Trim(comment.Text(), "\n")
+				propSpec.Description = cleanComment(comment.Text())
 			}
 		}
 
@@ -256,7 +256,7 @@ func (g *generator) gatherStructSchemas(node *ast.TypeSpec, t *types.TypeName, s
 
 	// Use the type's doc-comment as the description, if available.
 	if node.Doc != nil {
-		typeSpec.Description = strings.Trim(node.Doc.Text(), "\n")
+		typeSpec.Description = cleanComment(node.Doc.Text())
 	}
 
 	if IsResource(t, s) {
@@ -379,4 +379,10 @@ func (g *generator) diag(elem goPos) string {
 
 type goPos interface {
 	Pos() token.Pos
+}
+
+func cleanComment(s string) string {
+	s = strings.Trim(s, "\n")            // get rid of trailing newline(s).
+	s = strings.ReplaceAll(s, "\n", " ") // spaceify rather than multi-line comments.
+	return s
 }
