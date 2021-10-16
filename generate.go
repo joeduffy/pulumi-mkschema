@@ -71,13 +71,13 @@ func (g *generator) Schema() *schema.PackageSpec {
 		if spec.Resources == nil {
 			spec.Resources = make(map[string]schema.ResourceSpec)
 		}
-		spec.Resources[g.defaultRefType(k)] = *v
+		spec.Resources[g.defaultType(k)] = *v
 	}
 	for k, v := range g.Types {
 		if spec.Types == nil {
 			spec.Types = make(map[string]schema.ComplexTypeSpec)
 		}
-		spec.Types[g.defaultRefType(k)] = *v
+		spec.Types[g.defaultType(k)] = *v
 	}
 
 	return &spec
@@ -288,19 +288,21 @@ func (g *generator) gatherSchemaType(t types.Type, opts PropertyOptions) (*schem
 		if basic, isbasic := t.(*types.Basic); isbasic {
 			switch basic.Kind() {
 			case types.Bool:
-				return &schema.TypeSpec{Type: schema.BoolType.String()}, nil
+				return &schema.TypeSpec{Type: "boolean"}, nil
 			case types.Int, types.Int16, types.Int32, types.Int64:
-				return &schema.TypeSpec{Type: schema.IntType.String()}, nil
+				return &schema.TypeSpec{Type: "integer"}, nil
 			case types.Float32, types.Float64:
-				return &schema.TypeSpec{Type: schema.NumberType.String()}, nil
+				return &schema.TypeSpec{Type: "number"}, nil
 			case types.String:
-				return &schema.TypeSpec{Type: schema.StringType.String()}, nil
+				return &schema.TypeSpec{Type: "string"}, nil
 			}
 		}
 		return nil, errors.Errorf("bad primitive type %v; must be bool, int, float, or string", ft)
 	case *types.Interface:
-		// interface{} is fine and is interpreted as "any".
-		return &schema.TypeSpec{Type: schema.AnyType.String()}, nil
+		// interface{} is fine and is interpreted as any valid type. There is no "any" type
+		// in JSON schema, instead, we simply leave the type empty which means "no constraints."
+		// TODO: is this right? "object" is a map. Is Pulumi schema doing the right thing?
+		return &schema.TypeSpec{Type: "object"}, nil
 	case *types.Named:
 		switch ut := ft.Underlying().(type) {
 		case *types.Basic, *types.Interface:
@@ -316,7 +318,7 @@ func (g *generator) gatherSchemaType(t types.Type, opts PropertyOptions) (*schem
 			if refType == "" {
 				refType = g.defaultRefType(ft.String())
 			}
-			return &schema.TypeSpec{Ref: fmt.Sprintf("#/types/%s", refType)}, nil
+			return &schema.TypeSpec{Ref: refType}, nil
 		default:
 			return nil, errors.Errorf("bad named field type: %v", reflect.TypeOf(ut))
 		}
@@ -340,7 +342,7 @@ func (g *generator) gatherSchemaType(t types.Type, opts PropertyOptions) (*schem
 		}
 
 		// Generate the element type and return the map type that references it.
-		et, err := g.gatherSchemaType(ft.Elem(), PropertyOptions{})
+		et, err := g.gatherSchemaType(ft.Elem(), opts)
 		if err != nil {
 			return nil, err
 		}
@@ -350,7 +352,7 @@ func (g *generator) gatherSchemaType(t types.Type, opts PropertyOptions) (*schem
 		}, nil
 	case *types.Slice:
 		// A slice is OK so long as its element type is also OK.
-		et, err := g.gatherSchemaType(ft.Elem(), PropertyOptions{})
+		et, err := g.gatherSchemaType(ft.Elem(), opts)
 		if err != nil {
 			return nil, err
 		}
@@ -363,15 +365,21 @@ func (g *generator) gatherSchemaType(t types.Type, opts PropertyOptions) (*schem
 	return nil, errors.Errorf("unrecognized field type %v: %v", t, reflect.TypeOf(t))
 }
 
-// defaultRefType generates a default reference type. Unless otherwise noted, it assumes
-// we are referencing another type within the same package.
-func (g *generator) defaultRefType(t string) string {
+// defaultType generates a default fully qualified type name.
+func (g *generator) defaultType(t string) string {
 	lix := strings.LastIndex(t, ".")
 	if lix != -1 {
 		t = t[lix+1:]
 	}
 	// TODO: support specifying the module.
 	return fmt.Sprintf("%s:index:%s", g.Name, t)
+}
+
+// defaultRefType generates a default reference type. Unless otherwise noted, it assumes
+// we are referencing another type within the same package.
+func (g *generator) defaultRefType(t string) string {
+	dt := g.defaultType(t)
+	return fmt.Sprintf("#/types/%s", dt)
 }
 
 // diag stringifies a Go element's position for purposes of diagnostics.
