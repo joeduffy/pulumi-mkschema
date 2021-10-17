@@ -5,8 +5,14 @@ import (
 	"strings"
 )
 
-// PropertyOptionsTag is the field tag the IDL compiler uses to find property options.
-const PropertyOptionsTag = "pulumi"
+const (
+	// PropertyNameTag is the field tag used to drive the Pulumi schema name. By using the
+	// same tag as Pulumi, we avoid the need to redundantly declare multiple tags. Unfortunately,
+	// Pulumi does not permit comma-delimited options in this tag, so we need a separate options one.
+	PropertyNameTag = "pulumi"
+	// PropertyOptionsTag is the field tag used to control various schema options.
+	PropertyOptionsTag = "pschema"
+)
 
 // PropertyOptions represents a parsed field tag, controlling how properties are treated.
 type PropertyOptions struct {
@@ -20,31 +26,37 @@ type PropertyOptions struct {
 
 // ParsePropertyOptions parses a tag into a structured set of options.
 func ParsePropertyOptions(tag string) (bool, PropertyOptions, error) {
-	if ptag, has := reflect.StructTag(tag).Lookup(PropertyOptionsTag); has {
-		// The first element is the name; all others are optional flags.  All are delimited by commas.
-		opts := PropertyOptions{}
-		if keys := strings.Split(ptag, ","); len(keys) > 0 {
-			opts.Name = keys[0]
-			for _, key := range keys[1:] {
-				switch key {
-				case "optional":
-					opts.Optional = true
-				case "replaces":
-					opts.Replaces = true
-				case "in":
-					opts.In = true
-				case "out":
-					opts.Out = true
-				default:
-					if strings.HasPrefix(key, "ref=") {
-						opts.Ref = key[4:]
-					}
-					// Ignore unrecognized tags:
-					// return true, opts, errors.Errorf("unrecognized tag `pulumi:\"%v\"`", key)
+	var hadTags bool
+	var result PropertyOptions
+
+	stag := reflect.StructTag(tag)
+
+	// First see if there is a field name.
+	if name, has := stag.Lookup(PropertyNameTag); has {
+		hadTags = true
+		result.Name = name
+	}
+
+	// Next see if there are options and, if so, parse and decode the comma-delimited list.
+	if opts, has := stag.Lookup(PropertyOptionsTag); has {
+		hadTags = true
+		for _, key := range strings.Split(opts, ",") {
+			switch key {
+			case "optional":
+				result.Optional = true
+			case "replaces":
+				result.Replaces = true
+			case "in":
+				result.In = true
+			case "out":
+				result.Out = true
+			default:
+				if strings.HasPrefix(key, "ref=") {
+					result.Ref = key[4:]
 				}
 			}
 		}
-		return true, opts, nil
 	}
-	return false, PropertyOptions{}, nil
+
+	return hadTags, result, nil
 }
