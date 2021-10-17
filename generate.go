@@ -131,33 +131,6 @@ func (g *generator) GatherTypeSchemas(t *types.TypeName) error {
 	switch typ := t.Type().(type) {
 	case *types.Named:
 		switch s := typ.Underlying().(type) {
-		/*
-			case *types.Basic:
-				// A type alias, possibly interpreted as an enum if there are constants.
-				if IsPrimitive(s) {
-					if vals, isenum := g.EnumValues[typ]; isenum {
-						// There are enum values defined, use them to create an enum type.
-						return &Enum{
-							member: memb,
-							Values: vals,
-						}, true
-					}
-					// Otherwise, this is a simple type alias.
-					return &Alias{
-						member: memb,
-						target: s,
-					}, true
-				}
-
-				cmdutil.Diag().Errorf(diag.Message(
-					"type alias %v is not a valid IDL alias type (must be bool, float64, or string)").At(
-					g.diag(decl)))
-			case *types.Map, *types.Slice:
-				return &Alias{
-					member: memb,
-					target: s,
-				}, true
-		*/
 		case *types.Struct:
 			// A struct definition, possibly a resource.  First, check that all the fields are supported types.
 			return g.gatherStructSchemas(node, t, s)
