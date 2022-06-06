@@ -9,7 +9,7 @@ the benefit of using these same structures in the implementation of the componen
 To use the tool, first install it:
 
 ```bash
-go get -u github.com/joeduffy/pulumi-mkschema
+go install github.com/joeduffy/pulumi-mkschema@latest
 ```
 
 It accepts two arguments: the Pulumi Package name and the Go package path to generate types from:
